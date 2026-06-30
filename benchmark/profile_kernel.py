@@ -32,6 +32,7 @@ import cuda_gemm  # noqa: F401  (registers torch.ops.cuda_gemm.*)
 # Python op name -> callable. Add new variants here as you register them.
 KERNELS = {
     "gemm_naive": torch.ops.cuda_gemm.gemm_naive,
+    "gemm_gmem_coalesce": torch.ops.cuda_gemm.gemm_gmem_coalesce,
     "gemm_tiled": torch.ops.cuda_gemm.gemm_tiled,
 }
 

@@ -15,6 +15,7 @@ import cuda_gemm  # noqa: F401  (importing registers torch.ops.cuda_gemm.*)
 KERNELS = {
     "torch.matmul": torch.matmul,
     "gemm_naive": torch.ops.cuda_gemm.gemm_naive,
+    "gemm_gmem_coalesce": torch.ops.cuda_gemm.gemm_gmem_coalesce,
     "gemm_tiled": torch.ops.cuda_gemm.gemm_tiled,
 }
 
@@ -50,7 +51,8 @@ def main():
     print(f"GPU: {torch.cuda.get_device_name(0)}   dtype: float32")
 
     col_w = 22
-    header = f"{'size (M=N=K)':<14}" + "".join(f"{name:>{col_w}}" for name in KERNELS)
+    ai_label = "AI(FLOPs/Bytes)"
+    header = f"{'size (M=N=K)':<14} {ai_label:>13}" + "".join(f"{name:>{col_w}}" for name in KERNELS)
     print(header)
     print("-" * len(header))
 
@@ -58,6 +60,12 @@ def main():
         a = torch.randn(s, s, device="cuda", dtype=torch.float32)
         b = torch.randn(s, s, device="cuda", dtype=torch.float32)
         flops = 2 * s**3
+
+        # Arithmetic intensity = FLOPs / Bytes transferred
+        # Read A (S² elem) + Read B (S² elem) + Write C (S² elem) = 3·S² elements
+        # each fp32 element is 4 bytes → 12·S² bytes
+        bytes_transferred = 12 * s**2
+        ai = flops / bytes_transferred
 
         cells = []
         for fn in KERNELS.values():
@@ -67,7 +75,7 @@ def main():
             tflops = flops / (ms * 1e-3) / 1e12
             cells.append(f"{ms * 1e3:7.1f}us {tflops:7.1f}TF")
 
-        print(f"{s:<14}" + "".join(f"{c:>{col_w}}" for c in cells))
+        print(f"{s:<14} {ai:13.1f}" + "".join(f"{c:>{col_w}}" for c in cells))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+.eggs/
+
+# Tool caches (local only, not for version control)
+.pytest_cache/
+.ruff_cache/
+
+
+# Build artifacts
+build/
+dist/
+*.so
+*.o
+*.dylib
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store

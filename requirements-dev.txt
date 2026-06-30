@@ -1,0 +1,2 @@
+# Development tooling. ruff and clang-format versions are managed by pre-commit.
+pre-commit

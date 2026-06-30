@@ -1,0 +1,18 @@
+# Tool configuration only (no [build-system]): the project is built via setup.py.
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+extend-exclude = ["build", "*.egg-info"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+# Treat our own extension as first-party so it sorts AFTER torch (third-party):
+# the C++ extension links torch's shared libs, so `import torch` must run
+# before `import cuda_gemm` (else: ImportError: libc10.so ...).
+known-first-party = ["cuda_gemm"]
+
+[tool.ruff.format]
+docstring-code-format = true

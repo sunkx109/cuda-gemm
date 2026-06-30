@@ -1,0 +1,18 @@
+---
+# C++ / CUDA formatting. Run via pre-commit (clang-format) or manually:
+#   clang-format -i csrc/**/*.{cpp,cu,h,cuh}
+BasedOnStyle:    Google
+IndentWidth:     4
+UseTab:          Never
+ColumnLimit:     120
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass:      true
+  AfterFunction:   true
+  AfterNamespace:  true
+PointerAlignment: Right
+AlignAfterOpenBracket: AlwaysBreak
+BinPackArguments: false
+AccessModifierOffset: -4
+IndentCaseLabels: true
+SortIncludes:    CaseSensitive

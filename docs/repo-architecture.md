@@ -7,9 +7,10 @@
 ```
 cuda-gemm/
 ├── csrc/                      # 所有 C++/CUDA 源码
-│   ├── ops.h                  # 算子接口声明（C++ launcher 原型）
-│   ├── ops.cpp                # torchbind 注册：TORCH_LIBRARY + TORCH_LIBRARY_IMPL
-│   └── kernels/               # 各 GEMM 实现（一个文件 = 一个变体）
+│   ├── ops.h                  # torch 侧接口声明（gemm_naive/gemm_tiled wrapper 原型）
+│   ├── launchers.h            # torch-free 裸指针 launcher 原型 + gemm_launcher_fn 签名
+│   ├── ops.cpp                # torchbind 注册 + torch wrapper + 共享 gemm_impl（g++ 编译）
+│   └── kernels/               # 各 GEMM 实现（一个文件 = 一个变体，nvcc 编译，不含 torch）
 │       ├── gemm_naive.cu
 │       └── gemm_tiled.cu
 ├── tests/                     # 功能单测（正确性）
@@ -44,7 +45,16 @@ python setup.py develop      # 开发模式，改了源码后重跑
 
 ## torchbind 绑定机制
 
-绑定分两层，都在 `csrc/ops.cpp`：
+调用链分三层，**torch 只出现在最上层**，`.cu` 文件完全不碰 torch：
+
+```
+torch.ops.cuda_gemm.gemm_naive          # Python 侧（dispatcher）
+└─ gemm_naive        (ops.cpp)          # torch wrapper：一行 dispatch
+   └─ gemm_impl      (ops.cpp)          # 共享 helper：校验/contiguous/empty/取 stream
+      └─ launch_matmul_naive (kernels/gemm_naive.cu)  # 裸指针 + <<<>>> launch
+```
+
+torchbind 注册与 wrapper 都在 `csrc/ops.cpp`：
 
 ```cpp
 TORCH_LIBRARY(cuda_gemm, m) {            // 声明算子 schema（注册到 dispatcher）
@@ -52,9 +62,17 @@ TORCH_LIBRARY(cuda_gemm, m) {            // 声明算子 schema（注册到 disp
   m.def("gemm_tiled(Tensor A, Tensor B) -> Tensor");
 }
 
-TORCH_LIBRARY_IMPL(cuda_gemm, CUDA, m) { // 绑定 CUDA 实现（实现在 csrc/kernels/*.cu）
+TORCH_LIBRARY_IMPL(cuda_gemm, CUDA, m) { // 绑定 CUDA wrapper（定义在同文件 ops.cpp）
   m.impl("gemm_naive", &gemm_naive);
   m.impl("gemm_tiled", &gemm_tiled);
+}
+```
+
+每个 `gemm_*` wrapper 只是把对应 backend 的 launcher 传给共享的 `gemm_impl`，校验与 tensor 装配逻辑只此一份：
+
+```cpp
+torch::Tensor gemm_naive(torch::Tensor A, torch::Tensor B) {
+    return gemm_impl(std::move(A), std::move(B), launch_matmul_naive);
 }
 ```
 
@@ -62,13 +80,32 @@ TORCH_LIBRARY_IMPL(cuda_gemm, CUDA, m) { // 绑定 CUDA 实现（实现在 csrc/
 
 当前仅注册前向、CUDA dispatch key，**不含 autograd**。
 
+## 为什么 `.cu` 不 include torch（构建性能）
+
+这是一条刻意的架构约束，**新增 kernel 时务必遵守**：`.cu` 文件只 `#include <cuda_runtime.h>` 和 `launchers.h`，绝不 include `ops.h` / `<torch/extension.h>` / `<ATen/...>`。
+
+原因：nvcc 重新解析 PyTorch 的模板密集头文件极慢——实测单个 `.cu` **~85 s**，且 `-O0` 与 `-O3` 几乎一样，证明时间几乎全花在前端解析而非后端优化。把 torch 留给 `ops.cpp`（g++ 编译，解析这堆头只需几秒）后：
+
+| 场景                  | 之前     | 之后    |
+| --------------------- | -------- | ------- |
+| 改一个 `.cu` 重编     | ~88 s    | ~3 s    |
+| 全量 clean build      | ~90 s    | ~28 s   |
+
+一旦在某个 `.cu` 里 include 了 torch，该文件编译时间立刻回到分钟级，抵消整个优化。launcher 只接 `const float*` + `cudaStream_t`（见 `launchers.h` 的 `gemm_launcher_fn`），正是为了能跨过 torch 的边界。
+
 ## 如何添加一个 GEMM 变体
 
-以新增 `gemm_wmma` 为例：
+以新增 `gemm_wmma` 为例。kernel 本体写在 torch-free 的 `.cu`，torch 装配复用 `gemm_impl`，无需复制校验代码：
 
-1. **写 kernel**：新建 `csrc/kernels/gemm_wmma.cu`，实现 `__global__` kernel 与 host launcher `torch::Tensor gemm_wmma(torch::Tensor A, torch::Tensor B)`（用 `#include "ops.h"` 复用声明）。
-2. **声明接口**：在 `csrc/ops.h` 加 `torch::Tensor gemm_wmma(torch::Tensor A, torch::Tensor B);`。
-3. **注册算子**：在 `csrc/ops.cpp` 的 `TORCH_LIBRARY` 里 `m.def("gemm_wmma(Tensor A, Tensor B) -> Tensor")`，并在 `TORCH_LIBRARY_IMPL(cuda_gemm, CUDA, m)` 里 `m.impl("gemm_wmma", &gemm_wmma)`。
+1. **写 launcher**：新建 `csrc/kernels/gemm_wmma.cu`，只 `#include <cuda_runtime.h>` 与 `#include "launchers.h"`（**不要 include torch**）。实现 `__global__ void matmul_wmma_kernel(...)`，以及 host 函数 `void launch_matmul_wmma(const float* A, const float* B, float* C, int M, int N, int K, cudaStream_t stream)`——签名照 `launchers.h` 的 `gemm_launcher_fn`，内部做 `dim3`/grid/`<<<>>>` launch。
+2. **声明 launcher**：在 `csrc/launchers.h` 加一行 `void launch_matmul_wmma(...)`。
+3. **加一行 dispatch wrapper**：在 `csrc/ops.cpp` 加
+   ```cpp
+   torch::Tensor gemm_wmma(torch::Tensor A, torch::Tensor B) {
+       return gemm_impl(std::move(A), std::move(B), launch_matmul_wmma);
+   }
+   ```
+   并在 `TORCH_LIBRARY` 里 `m.def("gemm_wmma(Tensor A, Tensor B) -> Tensor")`、`TORCH_LIBRARY_IMPL(cuda_gemm, CUDA, m)` 里 `m.impl("gemm_wmma", &gemm_wmma)`。
 4. **重装**：`python setup.py develop`（无需改 `setup.py`，glob 会自动纳入新文件）。
 5. **验证**：调用 `torch.ops.cuda_gemm.gemm_wmma(a, b)`；在 `tests/test_gemm.py` 的 `OPS` 列表里加上它即可自动跑全部尺寸的正确性测试。
 

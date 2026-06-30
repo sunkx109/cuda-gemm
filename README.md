@@ -98,3 +98,9 @@ pre-commit run --all-files  # manual full check
 
 - **Forward-only** (no autograd). For training/backward, register a backward implementation in `ops.cpp`, or wrap the op in a `torch.autograd.Function` on the Python side.
 - The binding can be switched to plain **pybind11** (`cuda_gemm.ops.foo(...)`) by replacing the `TORCH_LIBRARY*` block in `ops.cpp` with `PYBIND11_MODULE` + `m.def_submodule("ops")`; the kernels and `setup.py` stay the same.
+
+## Reference
+
+* [Learn CUTLASS the hard way!](https://www.kapilsharma.dev/posts/learn-cutlass-the-hard-way/#)
+* [CUDA GEMM 理论性能分析与 kernel 优化](https://zhuanlan.zhihu.com/p/441146275)
+* [深入浅出GPU优化](https://www.zhihu.com/column/c_1437330196193640448)

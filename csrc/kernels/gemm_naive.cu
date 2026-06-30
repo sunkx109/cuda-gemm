@@ -1,44 +1,40 @@
-#include <ATen/cuda/CUDAContext.h>
 #include <cuda_runtime.h>
 
-#include "ops.h"
+#include "launchers.h"
 
 // Naive GEMM: one thread per output element C[row][col].
-__global__ void matmul_naive_kernel(const float* A, const float* B, float* C, int M, int N, int K)
+// Grid  [M/block_size , N/block_size]
+// Block [block_size * block_size]
+template <const int block_size>
+__global__ void matmul_naive_kernel(
+    const float* matrix_a, const float* matrix_b, float* output_matrix, int num_rows_a,
+    int num_cols_b, int num_cols_a, float alpha, float beta)
 {
-    int row = blockIdx.y * blockDim.y + threadIdx.y;
-    int col = blockIdx.x * blockDim.x + threadIdx.x;
-    if (row < M && col < N) {
-        float acc = 0.0f;
-        for (int k = 0; k < K; ++k) {
-            acc += A[row * K + k] * B[k * N + col];
+    // Map 1D thread ID to 2D output position
+    const int output_row = blockIdx.x * block_size + (threadIdx.x % block_size);
+    const int output_col = blockIdx.y * block_size + (threadIdx.x / block_size);
+
+    // Boundary check for non-multiple of block size
+    if (output_row < num_rows_a && output_col < num_cols_b)
+    {
+        float accumulator = 0.0f;
+        for (int k_idx = 0; k_idx < num_cols_a; ++k_idx)
+        {
+            accumulator += matrix_a[output_row * num_cols_a + k_idx] *
+                           matrix_b[k_idx * num_cols_b + output_col];
         }
-        C[row * N + col] = acc;
+        // C = α*(A@B)+β*C
+        const int output_idx = output_row * num_cols_b + output_col;
+        output_matrix[output_idx] = alpha * accumulator + beta * output_matrix[output_idx];
     }
 }
 
-torch::Tensor gemm_naive(torch::Tensor A, torch::Tensor B)
+void launch_matmul_naive(
+    const float* A, const float* B, float* C, int M, int N, int K, cudaStream_t stream)
 {
-    TORCH_CHECK(A.is_cuda() && B.is_cuda(), "Inputs must be CUDA tensors");
-    TORCH_CHECK(A.scalar_type() == torch::kFloat32 && B.scalar_type() == torch::kFloat32, "Inputs must be float32");
-    TORCH_CHECK(A.dim() == 2 && B.dim() == 2, "Inputs must be 2D");
-    TORCH_CHECK(A.size(1) == B.size(0), "Shape mismatch: A.size(1) must equal B.size(0)");
+    constexpr int BLOCK = 32;
+    dim3 block(BLOCK * BLOCK);  // 1D block of block_size * block_size threads
+    dim3 grid((M + BLOCK - 1) / BLOCK, (N + BLOCK - 1) / BLOCK);
 
-    A = A.contiguous();
-    B = B.contiguous();
-
-    const int M = A.size(0);
-    const int K = A.size(1);
-    const int N = B.size(1);
-
-    auto C = torch::empty({M, N}, A.options());
-
-    constexpr int BLOCK = 16;
-    dim3 block(BLOCK, BLOCK);
-    dim3 grid((N + BLOCK - 1) / BLOCK, (M + BLOCK - 1) / BLOCK);
-
-    matmul_naive_kernel<<<grid, block, 0, at::cuda::getCurrentCUDAStream()>>>(
-        A.data_ptr<float>(), B.data_ptr<float>(), C.data_ptr<float>(), M, N, K);
-
-    return C;
+    matmul_naive_kernel<BLOCK><<<grid, block, 0, stream>>>(A, B, C, M, N, K, 1.0f, 0.0f);
 }

@@ -39,8 +39,8 @@ def main():
         "--sizes",
         type=int,
         nargs="+",
-        default=[512, 1024, 2048],
-        help="square sizes M=N=K (default: 512 1024 2048)",
+        default=[512, 1024, 2048, 4096],
+        help="square sizes M=N=K (default: 512 1024 2048 4096)",
     )
     parser.add_argument("--iters", type=int, default=50, help="timed iterations")
     parser.add_argument("--warmup", type=int, default=10, help="warmup iterations")

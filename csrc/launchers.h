@@ -19,6 +19,9 @@ void launch_matmul_naive(
 void launch_matmul_gmem_coalesce(
     const float* A, const float* B, float* C, int M, int N, int K, cudaStream_t stream);
 
+void launch_matmul_gmem_smem(
+    const float* A, const float* B, float* C, int M, int N, int K, cudaStream_t stream);
+
 void launch_matmul_tiled(
     const float* A, const float* B, float* C, int M, int N, int K, cudaStream_t stream);
 

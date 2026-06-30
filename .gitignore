@@ -22,3 +22,7 @@ dist/
 .idea/
 *.swp
 .DS_Store
+
+# report
+*.ncu-rep
+*.nsys-rep

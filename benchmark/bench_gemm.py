@@ -16,6 +16,7 @@ KERNELS = {
     "torch.matmul": torch.matmul,
     "gemm_naive": torch.ops.cuda_gemm.gemm_naive,
     "gemm_gmem_coalesce": torch.ops.cuda_gemm.gemm_gmem_coalesce,
+    "gemm_smem": torch.ops.cuda_gemm.gemm_smem,
     "gemm_tiled": torch.ops.cuda_gemm.gemm_tiled,
 }
 
@@ -52,7 +53,9 @@ def main():
 
     col_w = 22
     ai_label = "AI(FLOPs/Bytes)"
-    header = f"{'size (M=N=K)':<14} {ai_label:>13}" + "".join(f"{name:>{col_w}}" for name in KERNELS)
+    header = f"{'size (M=N=K)':<14} {ai_label:>13}" + "".join(
+        f"{name:>{col_w}}" for name in KERNELS
+    )
     print(header)
     print("-" * len(header))
 

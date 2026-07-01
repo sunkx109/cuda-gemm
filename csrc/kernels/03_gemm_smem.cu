@@ -6,9 +6,9 @@
 // blocksize = {block_size * block_size}
 
 template <const uint block_size>
-__global__ void sgemm_shared_mem_kernel(const float *matrix_a,
-                                        const float *matrix_b,float *matrix_c,int num_rows_a, int num_cols_b, int num_cols_a,
-                                        float alpha, float beta)
+__global__ void sgemm_shared_mem_kernel(
+    const float *matrix_a, const float *matrix_b, float *matrix_c, int num_rows_a, int num_cols_b,
+    int num_cols_a, float alpha, float beta)
 {
     const uint block_row = blockIdx.x;
     const uint block_col = blockIdx.y;
@@ -27,8 +27,8 @@ __global__ void sgemm_shared_mem_kernel(const float *matrix_a,
     const uint global_col = block_col * block_size + thread_col;
 
     // Move pointers to the starting position for this block
-    matrix_a += block_row * block_size * num_cols_a; // row=block_row, col=0
-    matrix_b += block_col * block_size;              // row=0, col=block_col
+    matrix_a += block_row * block_size * num_cols_a;  // row=block_row, col=0
+    matrix_b += block_col * block_size;               // row=0, col=block_col
     matrix_c += block_row * block_size * num_cols_b + block_col * block_size;
 
     float accumulator = 0.0f;
@@ -57,7 +57,7 @@ __global__ void sgemm_shared_mem_kernel(const float *matrix_a,
         }
         else
         {
-            //其余部分补0
+            // 其余部分补0
             tile_b[thread_row * block_size + thread_col] = 0.0f;
         }
 
@@ -88,12 +88,12 @@ __global__ void sgemm_shared_mem_kernel(const float *matrix_a,
 }
 
 void launch_matmul_gmem_smem(
-    const float* A, const float* B, float* C, int M, int N, int K, cudaStream_t stream)
+    const float *A, const float *B, float *C, int M, int N, int K, cudaStream_t stream)
 {
     constexpr int BLOCK = 32;
     dim3 block(BLOCK * BLOCK);  // 1D block of block_size * block_size threads
     dim3 grid((M + BLOCK - 1) / BLOCK, (N + BLOCK - 1) / BLOCK);
 
     // Launch kernel
-    sgemm_shared_mem_kernel<BLOCK><<<grid, block, 0, stream>>>(A, B, C,M, N, K,1.0f,0.0f);
+    sgemm_shared_mem_kernel<BLOCK><<<grid, block, 0, stream>>>(A, B, C, M, N, K, 1.0f, 0.0f);
 }

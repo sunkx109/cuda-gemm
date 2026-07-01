@@ -3,6 +3,8 @@
 #include "launchers.h"
 
 
+//Grid : {(M + BM - 1) / BM, (N + BN - 1) / BN}
+//Block : (BM / TM) * BN
 template <const int BM, const int BN, const int BK, const int TM>
 __global__ void sgemm_blocktiling_1d_kernel(const float *matrix_a,
                                         const float *matrix_b,float *matrix_c,int num_rows_a, int num_cols_b, int num_cols_a,
@@ -66,6 +68,7 @@ __global__ void sgemm_blocktiling_1d_kernel(const float *matrix_a,
         matrix_b += BK * num_cols_b;
 
         // Calculate per-thread results
+        // 完成[BM,BK] * [BK,BN] 这个tile的gemm
         for (uint dot_idx = 0; dot_idx < BK; ++dot_idx)
         {
             // We make the dotproduct loop the outside loop, which facilitates

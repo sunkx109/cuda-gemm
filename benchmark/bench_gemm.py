@@ -17,6 +17,7 @@ KERNELS = {
     "gemm_naive": torch.ops.cuda_gemm.gemm_naive,
     "gemm_gmem_coalesce": torch.ops.cuda_gemm.gemm_gmem_coalesce,
     "gemm_smem": torch.ops.cuda_gemm.gemm_smem,
+    "gemm_blocktiling_1d": torch.ops.cuda_gemm.gemm_blocktiling_1d,
     "gemm_tiled": torch.ops.cuda_gemm.gemm_tiled,
 }
 

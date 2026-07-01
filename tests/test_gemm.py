@@ -9,6 +9,7 @@ OPS = [
     pytest.param(torch.ops.cuda_gemm.gemm_naive, id="naive"),
     pytest.param(torch.ops.cuda_gemm.gemm_gmem_coalesce, id="gmem_coalesce"),
     pytest.param(torch.ops.cuda_gemm.gemm_smem, id="gmem_smem"),
+    pytest.param(torch.ops.cuda_gemm.gemm_smem, id="gemm_blocktiling_1d"),
     pytest.param(torch.ops.cuda_gemm.gemm_tiled, id="tiled"),
 ]
 

@@ -9,8 +9,8 @@ OPS = [
     pytest.param(torch.ops.cuda_gemm.gemm_naive, id="naive"),
     pytest.param(torch.ops.cuda_gemm.gemm_gmem_coalesce, id="gmem_coalesce"),
     pytest.param(torch.ops.cuda_gemm.gemm_smem, id="gmem_smem"),
-    pytest.param(torch.ops.cuda_gemm.gemm_smem, id="gemm_blocktiling_1d"),
-    pytest.param(torch.ops.cuda_gemm.gemm_tiled, id="tiled"),
+    pytest.param(torch.ops.cuda_gemm.gemm_blocktiling_1d, id="gemm_blocktiling_1d"),
+    pytest.param(torch.ops.cuda_gemm.gemm_blocktiling_2d, id="gemm_blocktiling_2d"),
 ]
 
 # (M, K, N) — includes non-power-of-two and non-tile-aligned dims.
@@ -45,13 +45,3 @@ def test_shape_mismatch_raises():
     b = torch.randn(6, 7, device="cuda")
     with pytest.raises(RuntimeError):
         torch.ops.cuda_gemm.gemm_naive(a, b)
-
-
-@cuda_only
-def test_non_contiguous_input():
-    a = torch.randn(64, 64, device="cuda", dtype=torch.float32).t().t()  # still contiguous
-    a = torch.randn(128, 128, device="cuda", dtype=torch.float32)[:, ::2]  # non-contiguous
-    b = torch.randn(64, 16, device="cuda", dtype=torch.float32)
-    ref = torch.matmul(a, b)
-    out = torch.ops.cuda_gemm.gemm_tiled(a, b)
-    torch.testing.assert_close(out, ref, rtol=1e-4, atol=1e-4)

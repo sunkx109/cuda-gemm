@@ -2,13 +2,12 @@
 
 #include "launchers.h"
 
-
-//Grid : {(M + BM - 1) / BM, (N + BN - 1) / BN}
-//Block : (BM / TM) * BN
+// Grid : {(M + BM - 1) / BM, (N + BN - 1) / BN}
+// Block : (BM / TM) * BN
 template <const int BM, const int BN, const int BK, const int TM>
-__global__ void sgemm_blocktiling_1d_kernel(const float *matrix_a,
-                                        const float *matrix_b,float *matrix_c,int num_rows_a, int num_cols_b, int num_cols_a,
-                                        float alpha, float beta)
+__global__ void sgemm_blocktiling_1d_kernel(
+    const float *matrix_a, const float *matrix_b, float *matrix_c, int num_rows_a, int num_cols_b,
+    int num_cols_a, float alpha, float beta)
 {
     const uint block_row = blockIdx.x;
     const uint block_col = blockIdx.y;
@@ -24,8 +23,8 @@ __global__ void sgemm_blocktiling_1d_kernel(const float *matrix_a,
     const int global_col = block_col * BN + thread_col;
 
     // Move pointers to the starting position for this block
-    matrix_a += block_row * BM * num_cols_a; // row=block_row, col=0
-    matrix_b += block_col * BN;              // row=0, col=block_col
+    matrix_a += block_row * BM * num_cols_a;  // row=block_row, col=0
+    matrix_b += block_col * BN;               // row=0, col=block_col
     matrix_c += block_row * BM * num_cols_b + block_col * BN;
 
     // Allocate thread-local cache for results in register file
@@ -98,7 +97,7 @@ __global__ void sgemm_blocktiling_1d_kernel(const float *matrix_a,
 }
 
 void launch_matmul_gemm_blocktiling_1d(
-    const float* A, const float* B, float* C, int M, int N, int K, cudaStream_t stream)
+    const float *A, const float *B, float *C, int M, int N, int K, cudaStream_t stream)
 {
     // Template parameters for kernel
     constexpr int BM = 64;
@@ -112,5 +111,6 @@ void launch_matmul_gemm_blocktiling_1d(
     dim3 grid((M + BM - 1) / BM, (N + BN - 1) / BN);
 
     // Launch kernel
-    sgemm_blocktiling_1d_kernel<BM, BN, BK, TM><<<grid, block, 0, stream>>>(A, B, C,M, N, K,1.0f,0.0f);
+    sgemm_blocktiling_1d_kernel<BM, BN, BK, TM>
+        <<<grid, block, 0, stream>>>(A, B, C, M, N, K, 1.0f, 0.0f);
 }

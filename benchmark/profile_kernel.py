@@ -34,8 +34,8 @@ KERNELS = {
     "gemm_naive": torch.ops.cuda_gemm.gemm_naive,
     "gemm_gmem_coalesce": torch.ops.cuda_gemm.gemm_gmem_coalesce,
     "gemm_smem": torch.ops.cuda_gemm.gemm_smem,
-    "gemm_tiled": torch.ops.cuda_gemm.gemm_tiled,
     "gemm_blocktiling_1d": torch.ops.cuda_gemm.gemm_blocktiling_1d,
+    "gemm_blocktiling_2d": torch.ops.cuda_gemm.gemm_blocktiling_2d,
 }
 
 # Python op name -> underlying CUDA device-kernel name (for ncu --kernel-name).
@@ -43,8 +43,8 @@ DEVICE_KERNEL = {
     "gemm_naive": "matmul_naive_kernel",
     "gemm_gmem_coalesce": "matmul_gmem_coalesce_kernel",
     "gemm_smem": "sgemm_shared_mem_kernel",
-    "gemm_tiled": "matmul_tiled_kernel",
     "gemm_blocktiling_1d": "sgemm_blocktiling_1d_kernel",
+    "gemm_blocktiling_2d": "sgemm_blocktiling_2d_kernel",
 }
 
 

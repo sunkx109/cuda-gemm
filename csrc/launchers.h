@@ -28,6 +28,9 @@ void launch_matmul_gemm_blocktiling_1d(
 void launch_matmul_gemm_blocktiling_2d(
     const float* A, const float* B, float* C, int M, int N, int K, cudaStream_t stream);
 
+void launch_matmul_gemm_warptiling(
+    const float* A, const float* B, float* C, int M, int N, int K, cudaStream_t stream);
+
 // Pointer to any launch_matmul_* function. ops.cpp's shared wrapper takes one
 // of these, so adding a backend is "write a .cu launcher + one dispatch line".
 using gemm_launcher_fn =

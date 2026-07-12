@@ -45,3 +45,30 @@ def test_shape_mismatch_raises():
     b = torch.randn(6, 7, device="cuda")
     with pytest.raises(RuntimeError):
         torch.ops.cuda_gemm.gemm_naive(a, b)
+
+
+CUTLASS_OPS = [pytest.param(torch.ops.cuda_gemm.gemm_warptiling, id="gemm_warptiling")]
+
+CUTLASS_SHAPES = [
+    (1024, 1024, 1024),
+    (2048, 2048, 2048),
+    (4096, 4096, 4096),
+]
+
+
+@cuda_only
+@pytest.mark.parametrize("op", CUTLASS_OPS)
+@pytest.mark.parametrize(
+    "shapes", CUTLASS_SHAPES, ids=[f"{m}x{k}x{n}" for m, k, n in CUTLASS_SHAPES]
+)
+def test_gemm_warptiling_correctness(op, shapes):
+    M, K, N = shapes
+    a = torch.randn(M, K, device="cuda", dtype=torch.float32)
+    b = torch.randn(K, N, device="cuda", dtype=torch.float32)
+
+    ref = torch.matmul(a, b)
+    out = op(a, b)
+
+    assert out.shape == (M, N)
+    assert out.dtype == torch.float32
+    torch.testing.assert_close(out, ref, rtol=5e-4, atol=5e-4)

@@ -3,10 +3,9 @@
 #include "launchers.h"
 
 template <const int BM, const int BN, const int BK, const int TM, const int TN>
-__global__ void sgemm_blocktiling_2d_kernel(int num_rows_a, int num_cols_b, int num_cols_a,
-                                            float alpha, const float *matrix_a,
-                                            const float *matrix_b, float beta,
-                                            float *matrix_c)
+__global__ void sgemm_blocktiling_2d_kernel(
+    int num_rows_a, int num_cols_b, int num_cols_a, float alpha, const float *matrix_a,
+    const float *matrix_b, float beta, float *matrix_c)
 {
     const uint block_row = blockIdx.x;
     const uint block_col = blockIdx.y;
@@ -82,20 +81,18 @@ __global__ void sgemm_blocktiling_2d_kernel(int num_rows_a, int num_cols_b, int 
 #pragma unroll
         for (uint res_idx_n = 0; res_idx_n < TN; ++res_idx_n)
         {
-            const uint c_idx = (thread_row * TM + res_idx_m) * num_cols_b +
-                               (thread_col * TN + res_idx_n);
-            matrix_c[c_idx] = alpha * thread_results[res_idx_m * TN + res_idx_n] +
-                              beta * matrix_c[c_idx];
+            const uint c_idx =
+                (thread_row * TM + res_idx_m) * num_cols_b + (thread_col * TN + res_idx_n);
+            matrix_c[c_idx] =
+                alpha * thread_results[res_idx_m * TN + res_idx_n] + beta * matrix_c[c_idx];
         }
     }
 }
 
 template <const int BM, const int BN, const int BK, const int TM, const int TN>
-__global__ void sgemm_blocktiling_2d_edge_kernel(int num_rows_a, int num_cols_b, int num_cols_a,
-                                                 float alpha, const float *matrix_a,
-                                                 const float *matrix_b, float beta,
-                                                 float *matrix_c,
-                                                 int block_row_offset, int block_col_offset)
+__global__ void sgemm_blocktiling_2d_edge_kernel(
+    int num_rows_a, int num_cols_b, int num_cols_a, float alpha, const float *matrix_a,
+    const float *matrix_b, float beta, float *matrix_c, int block_row_offset, int block_col_offset)
 {
     const uint block_row = blockIdx.x + block_row_offset;
     const uint block_col = blockIdx.y + block_col_offset;
@@ -182,18 +179,17 @@ __global__ void sgemm_blocktiling_2d_edge_kernel(int num_rows_a, int num_cols_b,
 
             if (global_row < num_rows_a && global_col < num_cols_b)
             {
-                const uint c_idx = (thread_row * TM + res_idx_m) * num_cols_b +
-                                   (thread_col * TN + res_idx_n);
-                matrix_c[c_idx] = alpha * thread_results[res_idx_m * TN + res_idx_n] +
-                                  beta * matrix_c[c_idx];
+                const uint c_idx =
+                    (thread_row * TM + res_idx_m) * num_cols_b + (thread_col * TN + res_idx_n);
+                matrix_c[c_idx] =
+                    alpha * thread_results[res_idx_m * TN + res_idx_n] + beta * matrix_c[c_idx];
             }
         }
     }
 }
 void launch_matmul_gemm_blocktiling_2d(
-    const float* A, const float* B, float* C, int M, int N, int K, cudaStream_t stream)
+    const float *A, const float *B, float *C, int M, int N, int K, cudaStream_t stream)
 {
-
     const int num_rows_a = M;
     const int num_cols_a = K;
     const int num_cols_b = N;
@@ -214,35 +210,28 @@ void launch_matmul_gemm_blocktiling_2d(
     if (main_blocks_m > 0 && main_blocks_n > 0)
     {
         dim3 main_grid(main_blocks_m, main_blocks_n);
-        sgemm_blocktiling_2d_kernel<BM, BN, BK, TM, TN><<<main_grid, block_dim>>>(
-            num_rows_a, num_cols_b, num_cols_a,
-            alpha, A, B, beta, C);
+        sgemm_blocktiling_2d_kernel<BM, BN, BK, TM, TN>
+            <<<main_grid, block_dim>>>(num_rows_a, num_cols_b, num_cols_a, alpha, A, B, beta, C);
     }
 
     if (main_blocks_m > 0 && num_blocks_n > main_blocks_n)
     {
         dim3 edge_right_grid(main_blocks_m, 1);
         sgemm_blocktiling_2d_edge_kernel<BM, BN, BK, TM, TN><<<edge_right_grid, block_dim>>>(
-            num_rows_a, num_cols_b, num_cols_a,
-            alpha, A, B, beta, C,
-            0, main_blocks_n);
+            num_rows_a, num_cols_b, num_cols_a, alpha, A, B, beta, C, 0, main_blocks_n);
     }
 
     if (num_blocks_m > main_blocks_m && main_blocks_n > 0)
     {
         dim3 edge_bottom_grid(1, main_blocks_n);
         sgemm_blocktiling_2d_edge_kernel<BM, BN, BK, TM, TN><<<edge_bottom_grid, block_dim>>>(
-            num_rows_a, num_cols_b, num_cols_a,
-            alpha, A, B, beta, C,
-            main_blocks_m, 0);
+            num_rows_a, num_cols_b, num_cols_a, alpha, A, B, beta, C, main_blocks_m, 0);
     }
 
     if (num_blocks_m > main_blocks_m && num_blocks_n > main_blocks_n)
     {
         dim3 edge_corner_grid(1, 1);
         sgemm_blocktiling_2d_edge_kernel<BM, BN, BK, TM, TN><<<edge_corner_grid, block_dim>>>(
-            num_rows_a, num_cols_b, num_cols_a,
-            alpha, A, B, beta, C,
-            main_blocks_m, main_blocks_n);
+            num_rows_a, num_cols_b, num_cols_a, alpha, A, B, beta, C, main_blocks_m, main_blocks_n);
     }
 }

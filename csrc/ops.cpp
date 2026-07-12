@@ -64,6 +64,11 @@ torch::Tensor gemm_blocktiling_2d(torch::Tensor A, torch::Tensor B)
 {
     return gemm_impl(std::move(A), std::move(B), launch_matmul_gemm_blocktiling_2d);
 }
+
+torch::Tensor gemm_warptiling(torch::Tensor A, torch::Tensor B)
+{
+    return gemm_impl(std::move(A), std::move(B), launch_matmul_gemm_warptiling);
+}
 // Register the operator schemas with the PyTorch dispatcher (torchbind).
 // After `import cuda_gemm`, these are callable as torch.ops.cuda_gemm.*.
 TORCH_LIBRARY(cuda_gemm, m)
@@ -73,6 +78,7 @@ TORCH_LIBRARY(cuda_gemm, m)
     m.def("gemm_gmem_coalesce(Tensor A, Tensor B) -> Tensor");
     m.def("gemm_blocktiling_1d(Tensor A, Tensor B) -> Tensor");
     m.def("gemm_blocktiling_2d(Tensor A, Tensor B) -> Tensor");
+    m.def("gemm_warptiling(Tensor A, Tensor B) -> Tensor");
 }
 
 // Bind the wrappers above to the CUDA dispatcher key.
@@ -83,6 +89,7 @@ TORCH_LIBRARY_IMPL(cuda_gemm, CUDA, m)
     m.impl("gemm_smem", &gemm_smem);
     m.impl("gemm_blocktiling_1d", &gemm_blocktiling_1d);
     m.impl("gemm_blocktiling_2d", &gemm_blocktiling_2d);
+    m.impl("gemm_warptiling", &gemm_warptiling);
 }
 
 // Minimal importable module: importing this .so triggers the static

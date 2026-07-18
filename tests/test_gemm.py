@@ -47,7 +47,10 @@ def test_shape_mismatch_raises():
         torch.ops.cuda_gemm.gemm_naive(a, b)
 
 
-CUTLASS_OPS = [pytest.param(torch.ops.cuda_gemm.gemm_warptiling, id="gemm_warptiling")]
+CUTLASS_OPS = [
+    pytest.param(torch.ops.cuda_gemm.gemm_warptiling, id="gemm_warptiling"),
+    pytest.param(torch.ops.cuda_gemm.gemm_cutlass, id="gemm_cutlass"),
+]
 
 CUTLASS_SHAPES = [
     (1024, 1024, 1024),

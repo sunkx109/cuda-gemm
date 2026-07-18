@@ -8,6 +8,9 @@ from torch.utils.cpp_extension import BuildExtension, CUDAExtension
 # (which runs from build/temp, not the project root).
 CSRC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "csrc")
 
+# CUTLASS header-only library path (third_party submodule)
+CUTLASS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "third_party", "cutlass")
+
 
 def get_cuda_arch_flags():
     """Auto-detect the current GPU's compute capability for nvcc (-gencode)."""
@@ -39,7 +42,10 @@ setup(
                 glob.glob("csrc/**/*.cpp", recursive=True)
                 + glob.glob("csrc/**/*.cu", recursive=True)
             ),
-            include_dirs=[CSRC_DIR],
+            include_dirs=[
+                CSRC_DIR,
+                os.path.join(CUTLASS_DIR, "include"),  # CUTLASS header-only
+            ],
             extra_cflags=["-O3"],
             extra_cuda_cflags=["-O3", *(get_cuda_arch_flags() or [])],
         ),
